@@ -57,6 +57,7 @@ modules:
       - dolphin
       - konsole
       - kate
+      - firefox
 
       # --- 后台服务与基础工具 ---
       - syncthing
