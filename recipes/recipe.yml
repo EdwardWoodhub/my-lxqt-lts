@@ -33,50 +33,16 @@ modules:
   # ------------------------------------------------------------
   # 3. 软件包安装 (适配 CentOS 10 / EPEL 10 软件栈)
   # ------------------------------------------------------------
-  - type: rpm-ostree
-    install:
-      # --- 虚拟化驱动与基础设施 ---
-      - xorg-x11-drv-vmware
-      - mesa-dri-drivers
-      - xorg-x11-server-Xwayland
-      - open-vm-tools-desktop
-      - sddm
-      - polkit
-      - dbus-x11
-      - xdg-desktop-portal
-      - xdg-desktop-portal-kde
-      - xdg-user-dirs
-
-      # --- KDE Plasma Wayland 核心 ---
-      - plasma-workspace
-      - plasma-desktop
-      - kwin-wayland
-      - kde-cli-tools
-      - kscreen
-      - kpipewire
-
-      # --- 常用应用组件 ---
-      - dolphin
-      - konsole
-      - kate
-      - ark
-      - spectacle
-      - gwenview
-      - thunar
-      - thunar-archive-plugin
-      #- pluma
-      #- atril
-      #- engrampa
-      #- galculator
-
-      # --- 生产力与后台工具 ---
-      - syncthing
-      - v2raya
-      - firewalld
-      - git
-      - gnome-terminal
-      - htop
-      - btop
+  - type: script
+    snippets:
+      - |
+        dnf install -y \
+          xorg-x11-drv-vmware mesa-dri-drivers xorg-x11-server-Xwayland open-vm-tools-desktop \
+          sddm polkit dbus-x11 xdg-desktop-portal xdg-desktop-portal-kde xdg-user-dirs \
+          plasma-workspace plasma-desktop kwin-wayland kde-cli-tools kscreen kpipewire \
+          dolphin konsole kate ark spectacle gwenview thunar thunar-archive-plugin \
+          syncthing v2raya firewalld git gnome-terminal htop btop
+  
 
   # ------------------------------------------------------------
   # 4. 系统配置与逻辑
