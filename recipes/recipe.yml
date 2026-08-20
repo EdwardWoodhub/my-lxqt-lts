@@ -1,6 +1,6 @@
 name: my-lxqt-lts-vm
 description: Bluefin LTS + LXQt
-base-image: ghcr.io/ublue-os/base-main
+base-image: ghcr.io/ublue-os/bluefin-lts
 image-version: latest
 
 modules:
@@ -21,8 +21,8 @@ modules:
   - type: script
     snippets:
       - |
-        curl -Lo /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo https://copr.fedorainfracloud.org/coprs/zhullyb/v2rayA/repo/fedora-43/zhullyb-v2rayA-fedora-43.repo
-        sed -i 's/\$releasever/43/g' /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo
+        curl -Lo /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo https://copr.fedorainfracloud.org/coprs/zhullyb/v2rayA/repo/centos-stream-10/zhullyb-v2rayA-centos-stream-10.repo
+        sed -i 's/\$releasever/10/g' /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo
 
   # ------------------------------------------------------------
   # 2. 软件包: 加入 dbus-x11 和 Thunar
@@ -177,6 +177,8 @@ modules:
   # ------------------------------------------------------------
   - type: systemd
     system:
+      disabled:
+        - gdm.service
       enabled:
         #- lightdm.service
         - sddm.service
