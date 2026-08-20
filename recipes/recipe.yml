@@ -1,23 +1,12 @@
-name: my-lxqt-lts-vm
-description: Bluefin LTS + LXQt
+name: my-plasma-lts-vm
+description: Bluefin GDX (CentOS Stream 10) + KDE Plasma Wayland
 base-image: ghcr.io/ublue-os/bluefin-gdx
 image-version: lts-testing-amd64
 
 modules:
   # ------------------------------------------------------------
-  # 1. 软件源
+  # 1. 软件源 (CentOS Stream 10 兼容源)
   # ------------------------------------------------------------
- # - type: script
-  #  snippets:
-   #   - |
-    #    echo "开始物理级依赖调优..."
-        # 强制替换底座中过时的 LibRaw 包
-     #   rpm-ostree override replace \
-      #    --experimental \
-       #   LibRaw.x86_64
-        # 直接让整个底座版本与当前仓库对齐
-        # rpm-ostree upgrade
-        
   - type: script
     snippets:
       - |
@@ -25,7 +14,7 @@ modules:
         sed -i 's/\$releasever/10/g' /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo
 
   # ------------------------------------------------------------
-  # 2. 软件包: 加入 dbus-x11 和 Thunar
+  # 2. Flatpak 软件
   # ------------------------------------------------------------
   - type: default-flatpaks@v1
     notify: true
@@ -36,126 +25,96 @@ modules:
         - com.github.tchx84.Flatseal
         - com.xnview.XnViewMP
         - com.visualstudio.code
-        - net.nokyan.Resources   # 如果你想要一个漂亮的图形监控界面
-        - io.missioncenter.MissionCenter # 如果你反悔了，想把 Mission Center 加回来
+        - net.nokyan.Resources
+        - io.missioncenter.MissionCenter
         - io.github.peazip.PeaZip
-  
 
+  # ------------------------------------------------------------
+  # 3. 软件包安装 (适配 CentOS 10 / EPEL 10 软件栈)
+  # ------------------------------------------------------------
   - type: rpm-ostree
     install:
+      # --- 虚拟化驱动与基础设施 ---
       - xorg-x11-drv-vmware
       - mesa-dri-drivers
       - xorg-x11-server-Xwayland
       - open-vm-tools-desktop
       - sddm
-      #- lightdm
-      #- lightdm-gtk
       - polkit
-      #- budgie-desktop
-      #- budgie-control-center
-      - lxqt-themes
-      - lxqt-themes-fedora
-      - adwaita-icon-theme
-      - hicolor-icon-theme
-      - lxqt-about
-      - lxqt-config
-      - lxqt-globalkeys
-      - lxqt-notificationd
-      - lxqt-openssh-askpass
-      - lxqt-panel
-      - lxqt-policykit
-      - lxqt-qtplugin
-      - lxqt-runner
-      - lxqt-session
-      - pcmanfm-qt
-      - qterminal
-      - labwc
-      - lxqt-wayland-session
-      - lxqt-labwc-session
-      - adwaita-cursor-theme
-      - screengrab
-      # --- 修复工具补丁 ---
-      - dbus-x11                  # 提供 dbus-update-activation-environment (备用)
-      - xdg-desktop-portal-gtk    # 修复窗口弹出
-      - xdg-user-dirs
+      - dbus-x11
       - xdg-desktop-portal
-      # --- 换装更稳的文件管理器 ---
+      - xdg-desktop-portal-kde
+      - xdg-user-dirs
+
+      # --- KDE Plasma Wayland 核心 ---
+      - plasma-workspace
+      - plasma-desktop
+      - kwin-wayland
+      - kde-cli-tools
+      - kscreen
+      - kpipewire
+
+      # --- 常用应用组件 ---
+      - dolphin
+      - konsole
+      - kate
+      - ark
+      - spectacle
+      - gwenview
       - thunar
       - thunar-archive-plugin
-      - pluma                     # 文本编辑器备胎
+      - pluma
       - atril
       - engrampa
       - galculator
-      # --- 生产力与同步 ---
+
+      # --- 生产力与后台工具 ---
       - syncthing
-      - wayvnc
       - v2raya
       - firewalld
       - git
-      - fastfetch
       - gnome-terminal
       - htop
       - btop
 
   # ------------------------------------------------------------
-  # 3. 系统逻辑
+  # 4. 系统配置与逻辑
   # ------------------------------------------------------------
   - type: script
     snippets:
       - |
         echo "WLR_NO_HARDWARE_CURSORS=1" >> /etc/environment
-        echo "XDG_CURRENT_DESKTOP=LXQt:labwc:wlroots" >> /etc/environment
+        echo "XDG_CURRENT_DESKTOP=KDE" >> /etc/environment
         echo "XDG_SESSION_TYPE=wayland" >> /etc/environment
-      
-      # --- 关键修复：手动创建 Linger 文件，代替 loginctl 命令 ---
+
+      # --- 创建用户 Linger 文件 ---
       - mkdir -p /var/lib/systemd/linger
       - touch /var/lib/systemd/linger/edward
       - touch /var/lib/systemd/linger/bob
-      
-      # ！！！注意：下面这一行 loginctl 必须删掉，它是报错的根源 ！！！
-      # - loginctl enable-linger edward  <-- 删掉这一行
 
-      - firewall-offline-cmd --add-port=5900/tcp
+      # --- 防火墙开放 Syncthing 控制台端口 ---
       - firewall-offline-cmd --add-port=8384/tcp
-      
+
+      # --- 配置 SDDM 自动登录进 Plasma Wayland 会话 ---
       - |
         mkdir -p /etc/sddm.conf.d
         cat <<EOF > /etc/sddm.conf.d/autologin.conf
         [Autologin]
         User=edward
-        Session=lxqt-wayland
+        Session=wayland-plasma
         [General]
         DisplayServer=wayland
         EOF
 
   # ------------------------------------------------------------
-  # 4. 动态用户服务 (WayVNC 与 Syncthing)
+  # 5. 动态用户服务 (已完全删除 wayvnc)
   # ------------------------------------------------------------
   - type: script
     snippets:
       - |
         mkdir -p /usr/lib/systemd/user/
-        # --- WayVNC 修复版 (Systemd 原生同步) ---
-        cat <<EOF > /usr/lib/systemd/user/wayvnc.service
-        [Unit]
-        Description=WayVNC Service
-        After=wayland-session.target
 
-        [Service]
-        Type=simple
-        Environment=WAYLAND_DISPLAY=wayland-0
-        Environment=XDG_RUNTIME_DIR=%t
-        # 使用 systemctl 原生命令，不再依赖外部二进制
-        ExecStartPre=/usr/bin/systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR
-        ExecStart=/usr/bin/wayvnc --render-cursor 0.0.0.0 5900
-        Restart=always
-        RestartSec=10
-
-        [Install]
-        WantedBy=default.target
-        EOF
-
-        # --- Syncthing 8384 版 ---
+        # --- Syncthing 服务定义 ---
         cat <<EOF > /usr/lib/systemd/user/syncthing.service
         [Unit]
         Description=Syncthing Service
@@ -173,19 +132,17 @@ modules:
         EOF
 
   # ------------------------------------------------------------
-  # 5. 激活服务
+  # 6. 激活与禁用服务
   # ------------------------------------------------------------
   - type: systemd
     system:
       disabled:
-        - gdm.service
+        - gdm.service        # 禁用原生的 GNOME 显示管理器，防止冲突
       enabled:
-        #- lightdm.service
         - sddm.service
         - v2raya.service
         - vmtoolsd.service
         - firewalld.service
     user:
       enabled:
-        - wayvnc.service
         - syncthing.service
