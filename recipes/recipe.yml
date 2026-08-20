@@ -1,45 +1,189 @@
----
-# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-# image will be published to ghcr.io/<user>/<name>
-name: template
-# description will be included in the image's metadata
-description: This is my personal OS image.
+name: my-lxqt-vm
+description: Fedora 44 + LXQt
+base-image: ghcr.io/ublue-os/base-main
+image-version: 44
 
-# the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/silverblue-main
-image-version: latest # You can pin to a specific version of Fedora as well
-
-# module configuration, executed in order
-# you can include multiple instances of the same module
 modules:
-  - type: files
-    files:
-      - source: system
-        destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
+  # ------------------------------------------------------------
+  # 1. 软件源
+  # ------------------------------------------------------------
+ # - type: script
+  #  snippets:
+   #   - |
+    #    echo "开始物理级依赖调优..."
+        # 强制替换底座中过时的 LibRaw 包
+     #   rpm-ostree override replace \
+      #    --experimental \
+       #   LibRaw.x86_64
+        # 直接让整个底座版本与当前仓库对齐
+        # rpm-ostree upgrade
+        
+  - type: script
+    snippets:
+      - |
+        curl -Lo /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo https://copr.fedorainfracloud.org/coprs/zhullyb/v2rayA/repo/fedora-43/zhullyb-v2rayA-fedora-43.repo
+        sed -i 's/\$releasever/43/g' /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo
 
-  - type: dnf
-    repos:
-      copr:
-        - atim/starship
+  # ------------------------------------------------------------
+  # 2. 软件包: 加入 dbus-x11 和 Thunar
+  # ------------------------------------------------------------
+  - type: default-flatpaks@v1
+    notify: true
+    system:
+      install:
+        - org.mozilla.firefox
+        - com.google.Chrome
+        - com.github.tchx84.Flatseal
+        - com.xnview.XnViewMP
+        - com.visualstudio.code
+        - net.nokyan.Resources   # 如果你想要一个漂亮的图形监控界面
+        - io.missioncenter.MissionCenter # 如果你反悔了，想把 Mission Center 加回来
+        - io.github.peazip.PeaZip
+  
+
+  - type: rpm-ostree
     install:
-      packages:
-        - micro
-        - starship
-    remove:
-      packages:
-        # example: removing firefox (in favor of the flatpak)
-        # "firefox" is the main package, "firefox-langpacks" is a dependency
-        - firefox
-        - firefox-langpacks # also remove firefox dependency (not required for all packages, this is a special case)
+      - xorg-x11-drv-vmware
+      - mesa-dri-drivers
+      - xorg-x11-server-Xwayland
+      - open-vm-tools-desktop
+      - sddm
+      #- lightdm
+      #- lightdm-gtk
+      - polkit
+      #- budgie-desktop
+      #- budgie-control-center
+      - lxqt-themes
+      - lxqt-themes-fedora
+      - adwaita-icon-theme
+      - hicolor-icon-theme
+      - lxqt-about
+      - lxqt-config
+      - lxqt-globalkeys
+      - lxqt-notificationd
+      - lxqt-openssh-askpass
+      - lxqt-panel
+      - lxqt-policykit
+      - lxqt-qtplugin
+      - lxqt-runner
+      - lxqt-session
+      - pcmanfm-qt
+      - qterminal
+      - labwc
+      - lxqt-wayland-session
+      - lxqt-labwc-session
+      - adwaita-cursor-theme
+      - screengrab
+      # --- 修复工具补丁 ---
+      - dbus-x11                  # 提供 dbus-update-activation-environment (备用)
+      - xdg-desktop-portal-gtk    # 修复窗口弹出
+      - xdg-user-dirs
+      - xdg-desktop-portal
+      # --- 换装更稳的文件管理器 ---
+      - thunar
+      - thunar-archive-plugin
+      - pluma                     # 文本编辑器备胎
+      - atril
+      - engrampa
+      - galculator
+      # --- 生产力与同步 ---
+      - syncthing
+      - wayvnc
+      - v2raya
+      - firewalld
+      - git
+      - fastfetch
+      - gnome-terminal
+      - htop
+      - btop
 
-  - type: default-flatpaks
-    configurations:
-      - notify: true # Send notification after install/uninstall is finished (true/false)
-        scope: system
-        # If no repo information is specified, Flathub will be used by default
-        install: # system flatpaks we want all users to have and not remove
-          - org.mozilla.firefox
-          - org.gnome.Loupe
-      - scope: user # Also add Flathub user repo, but no user packages
+  # ------------------------------------------------------------
+  # 3. 系统逻辑
+  # ------------------------------------------------------------
+  - type: script
+    snippets:
+      - |
+        echo "WLR_NO_HARDWARE_CURSORS=1" >> /etc/environment
+        echo "XDG_CURRENT_DESKTOP=LXQt:labwc:wlroots" >> /etc/environment
+        echo "XDG_SESSION_TYPE=wayland" >> /etc/environment
+      
+      # --- 关键修复：手动创建 Linger 文件，代替 loginctl 命令 ---
+      - mkdir -p /var/lib/systemd/linger
+      - touch /var/lib/systemd/linger/edward
+      - touch /var/lib/systemd/linger/bob
+      
+      # ！！！注意：下面这一行 loginctl 必须删掉，它是报错的根源 ！！！
+      # - loginctl enable-linger edward  <-- 删掉这一行
 
-  - type: signing # this sets up the proper policy & signing files for signed images to work fully
+      - firewall-offline-cmd --add-port=5900/tcp
+      - firewall-offline-cmd --add-port=8384/tcp
+      
+      - |
+        mkdir -p /etc/sddm.conf.d
+        cat <<EOF > /etc/sddm.conf.d/autologin.conf
+        [Autologin]
+        User=edward
+        Session=lxqt-wayland
+        [General]
+        DisplayServer=wayland
+        EOF
+
+  # ------------------------------------------------------------
+  # 4. 动态用户服务 (WayVNC 与 Syncthing)
+  # ------------------------------------------------------------
+  - type: script
+    snippets:
+      - |
+        mkdir -p /usr/lib/systemd/user/
+        # --- WayVNC 修复版 (Systemd 原生同步) ---
+        cat <<EOF > /usr/lib/systemd/user/wayvnc.service
+        [Unit]
+        Description=WayVNC Service
+        After=wayland-session.target
+
+        [Service]
+        Type=simple
+        Environment=WAYLAND_DISPLAY=wayland-0
+        Environment=XDG_RUNTIME_DIR=%t
+        # 使用 systemctl 原生命令，不再依赖外部二进制
+        ExecStartPre=/usr/bin/systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR
+        ExecStart=/usr/bin/wayvnc --render-cursor 0.0.0.0 5900
+        Restart=always
+        RestartSec=10
+
+        [Install]
+        WantedBy=default.target
+        EOF
+
+        # --- Syncthing 8384 版 ---
+        cat <<EOF > /usr/lib/systemd/user/syncthing.service
+        [Unit]
+        Description=Syncthing Service
+        After=network.target
+
+        [Service]
+        Environment=HOME=%h
+        ExecStartPre=/usr/bin/mkdir -p %h/.config/syncthing
+        ExecStart=/usr/bin/syncthing serve --no-browser --no-restart --gui-address=127.0.0.1:8384
+        Restart=on-failure
+        RestartSec=10
+
+        [Install]
+        WantedBy=default.target
+        EOF
+
+  # ------------------------------------------------------------
+  # 5. 激活服务
+  # ------------------------------------------------------------
+  - type: systemd
+    system:
+      enabled:
+        #- lightdm.service
+        - sddm.service
+        - v2raya.service
+        - vmtoolsd.service
+        - firewalld.service
+    user:
+      enabled:
+        - wayvnc.service
+        - syncthing.service
