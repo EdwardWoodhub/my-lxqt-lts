@@ -37,11 +37,8 @@ modules:
     snippets:
       - |
         dnf install -y \
-          open-vm-tools-desktop xorg-x11-drv-vmware mesa-dri-drivers xorg-x11-server-Xwayland \
-          sddm polkit dbus-x11 xdg-desktop-portal xdg-user-dirs \
-          plasma-workspace plasma-desktop kwin kde-cli-tools kscreen kpipewire \
-          dolphin konsole kate ark spectacle gwenview \
-          thunar thunar-archive-plugin syncthing v2raya firewalld git gnome-terminal htop
+          plasma-workspace plasma-desktop kwin syncthing v2raya sddm polkit-kde dolphin konsole kate plasma-firewall-firewalld
+  
   
   
 
