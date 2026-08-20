@@ -5,6 +5,19 @@ image-version: lts-amd64
 
 modules:
   # ------------------------------------------------------------
+  # 彻底禁止替换内核：在构建阶段抹除上游注入的 FC 内核包
+  # ------------------------------------------------------------
+  - type: script
+    snippets:
+      - |
+        # 清空上游 Containerfile 挂载的 Fedora 内核缓存目录
+        rm -rf /tmp/kernel-rpms/* || true
+        rm -rf /tmp/akmods-zfs-rpms/* || true
+        
+        # 在 dnf 配置中添加全局屏蔽，确保只使用 CentOS 原生内核
+        echo "exclude=kernel*fc* kernel*surface* kernel*cemu*" >> /etc/dnf/dnf.conf
+  
+  # ------------------------------------------------------------
   # 1. 软件源 (开启 EPEL 10 与 v2rayA COPR 源)
   # ------------------------------------------------------------
   - type: script
