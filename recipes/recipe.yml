@@ -1,6 +1,6 @@
 name: my-lxqt-lts-vm
 description: Bluefin LTS + LXQt
-base-image: ghcr.io/ublue-os/bluefin-lts
+base-image: ghcr.io/ublue-os/base-main
 image-version: latest
 
 modules:
