@@ -1,7 +1,7 @@
 name: my-plasma-lts-vm
 description: Bluefin GDX (CentOS Stream 10) + KDE Plasma 6
 base-image: ghcr.io/ublue-os/bluefin-gdx
-image-version: lts-testing-amd64
+image-version: lts-amd64
 
 modules:
   # ------------------------------------------------------------
