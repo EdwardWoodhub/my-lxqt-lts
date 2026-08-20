@@ -1,7 +1,7 @@
 name: my-lxqt-lts-vm
 description: Bluefin LTS + LXQt
-base-image: ghcr.io/ublue-os/bluefin-lts
-image-version: latest
+base-image: ghcr.io/ublue-os/bluefin-gdx
+image-version: lts-testing-amd64
 
 modules:
   # ------------------------------------------------------------
