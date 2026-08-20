@@ -58,6 +58,7 @@ modules:
       - konsole
       - kate
       - firefox
+      - spectacle
 
       # --- 后台服务与基础工具 ---
       - syncthing
