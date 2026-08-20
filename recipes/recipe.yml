@@ -14,8 +14,8 @@ modules:
         rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm || true
         
         # 引入 v2rayA COPR 源
-        curl -Lo /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo https://copr.fedorainfracloud.org/coprs/zhullyb/v2rayA/repo/centos-stream-10/zhullyb-v2rayA-centos-stream-10.repo
-        sed -i 's/\$releasever/10/g' /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo
+        #curl -Lo /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo https://copr.fedorainfracloud.org/coprs/zhullyb/v2rayA/repo/centos-stream-10/zhullyb-v2rayA-centos-stream-10.repo
+        #sed -i 's/\$releasever/10/g' /etc/yum.repos.d/_copr_zhullyb-v2rayA.repo
 
   # ------------------------------------------------------------
   # 2. Flatpak 软件 (替代 EL10 中缺失的原生应用)
@@ -60,10 +60,11 @@ modules:
 
       # --- 后台服务与基础工具 ---
       - syncthing
-      - v2raya
+      #- v2raya
       #- firewalld
       - git
       - htop
+      - btop
 
   # ------------------------------------------------------------
   # 4. 系统环境与自动登录配置
@@ -126,7 +127,7 @@ modules:
         - gdm.service          # 禁用原生 GNOME 登录界面，避免与 SDDM 冲突
       enabled:
         - sddm.service         # 启用 SDDM 登录界面
-        - v2raya.service
+        #- v2raya.service
         - firewalld.service
     user:
       enabled:
