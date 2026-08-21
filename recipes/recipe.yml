@@ -54,6 +54,7 @@ modules:
         - net.nokyan.Resources
         - io.missioncenter.MissionCenter
         - io.github.peazip.PeaZip
+        - com.jianguoyun.Nutstore
 
   # ------------------------------------------------------------
   # 3. RPM 软件包 (适配 EL10 的最小可用 Plasma 6 闭环)
