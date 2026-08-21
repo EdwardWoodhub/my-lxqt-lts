@@ -10,20 +10,22 @@ modules:
         #!/usr/bin/env bash
         set -e
 
-        # 1. 彻底清空 FC 内核与 FC 版驱动缓存
+        # 1. 彻底清空 uBlue 注入的 Fedora 内核与驱动 RPM，阻止覆盖
         rm -rf /tmp/kernel-rpms/* || true
-        echo "exclude=kernel*fc* kernel*surface* *nvidia*fc*" >> /etc/dnf/dnf.conf
 
-        # 2. 显式安装 CentOS 10 原生内核及核心组件
-        dnf install -y --repo=baseos --repo=appstream kernel-bootc kernel-modules kernel-core
-
-        # 3. 如果不需要专有驱动，确保移除 uBlue 预留的闭源 NVIDIA 模块黑名单冲突
-        # 允许系统正常回退到 nouveau / simpledrm / vmwgfx
+        # 2. 移除 uBlue 针对开源驱动的黑名单配置（保证虚拟化/集显 DRM 正常拉起）
         rm -f /etc/modprobe.d/blacklist-nouveau.conf || true
+        rm -f /etc/modprobe.d/nvidia*.conf || true
 
-        # 4. 强制针对 .el10 内核重新生成 initramfs (关键步骤)
-        KERNEL_VER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-bootc | head -n 1)
-        dracut --kver "$KERNEL_VER" --force
+        # 3. 抓取镜像内已有的 CentOS 10 (.el10) 原生内核版本号
+        KERNEL_VER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-core | grep el10 | head -n 1)
+
+        echo "Current .el10 kernel version: ${KERNEL_VER}"
+
+        # 4. 针对 .el10 内核重新生成 initramfs，确保显示与虚拟化驱动正常加载
+        if [ -n "${KERNEL_VER}" ]; then
+          dracut --kver "${KERNEL_VER}" --force --add "vmwgfx drm simpledrm"
+        fi
 
   
   # ------------------------------------------------------------
