@@ -4,18 +4,27 @@ base-image: ghcr.io/ublue-os/bluefin-gdx
 image-version: lts-amd64
 
 modules:
-  # ------------------------------------------------------------
-  # 彻底禁止替换内核：在构建阶段抹除上游注入的 FC 内核包
-  # ------------------------------------------------------------
   - type: script
     snippets:
       - |
-        # 清空上游 Containerfile 挂载的 Fedora 内核缓存目录
+        #!/usr/bin/env bash
+        set -e
+
+        # 1. 彻底清空 FC 内核与 FC 版驱动缓存
         rm -rf /tmp/kernel-rpms/* || true
-        rm -rf /tmp/akmods-zfs-rpms/* || true
-        
-        # 在 dnf 配置中添加全局屏蔽，确保只使用 CentOS 原生内核
-        echo "exclude=kernel*fc* kernel*surface* kernel*cemu*" >> /etc/dnf/dnf.conf
+        echo "exclude=kernel*fc* kernel*surface* *nvidia*fc*" >> /etc/dnf/dnf.conf
+
+        # 2. 显式安装 CentOS 10 原生内核及核心组件
+        dnf install -y --repo=baseos --repo=appstream kernel-bootc kernel-modules kernel-core
+
+        # 3. 如果不需要专有驱动，确保移除 uBlue 预留的闭源 NVIDIA 模块黑名单冲突
+        # 允许系统正常回退到 nouveau / simpledrm / vmwgfx
+        rm -f /etc/modprobe.d/blacklist-nouveau.conf || true
+
+        # 4. 强制针对 .el10 内核重新生成 initramfs (关键步骤)
+        KERNEL_VER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-bootc | head -n 1)
+        dracut --kver "$KERNEL_VER" --force
+
   
   # ------------------------------------------------------------
   # 1. 软件源 (开启 EPEL 10 与 v2rayA COPR 源)
