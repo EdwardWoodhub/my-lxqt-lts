@@ -1,61 +1,80 @@
-name: Build Pure CentOS 10 Plasma Bootc Image
+# 1. 继承红帽官方纯正 CentOS Stream 10 底座 (锁定纯正 .el10 内核)
+FROM quay.io/centos-bootc/centos-bootc:stream10
 
-on:
-  push:
-    branches: [ "main" ]
-  schedule:
-    - cron: "28 20 * * *" # 每天 UTC 20:28 (对应北京时间 CST 04:28)
-  workflow_dispatch:
+# 2. 启用 EPEL 10 与 CRB 仓库 (KDE Plasma 6 基础源)
+RUN dnf install -y 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm' && \
+    dnf config-manager --set-enabled crb
 
-env:
-  IMAGE_NAME: my-plasma-lts-vm
-  REGISTRY: ghcr.io/${{ github.actor }}
+# 3. 安装指定的 RPM 软件包
+RUN dnf install -y \
+    mesa-dri-drivers \
+    xorg-x11-server-Xwayland \
+    sddm \
+    dbus-x11 \
+    xdg-desktop-portal \
+    xdg-user-dirs \
+    plasma-workspace \
+    plasma-desktop \
+    kwin \
+    polkit-kde \
+    plasma-firewall-firewalld \
+    dolphin \
+    konsole \
+    kate \
+    firefox \
+    spectacle \
+    syncthing \
+    git \
+    htop \
+    btop \
+    flatpak \
+    && dnf clean all
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write # Cosign 签名必需权限
+# 4. 配置默认启动目标为图形界面，并启用 SDDM 显示管理器
+RUN systemctl set-default graphical.target && \
+    systemctl enable sddm.service
 
-    steps:
-      - name: Maximize build space
-        uses: ublue-os/remove-unwanted-software@v7
+# 5. 配置 Flathub 软件源与开机预装服务
+RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+# 创建 Flatpak 首次开机自动安装脚本
+RUN mkdir -p /usr/libexec/my-custom-setup && \
+    cat <<'EOF' > /usr/libexec/my-custom-setup/install-flatpaks.sh
+#!/usr/bin/env bash
+set -e
 
-      - name: Install Cosign (Sigstore)
-        uses: sigstore/cosign-installer@v3.5.0
+FLATPAKS=(
+  org.mozilla.firefox
+  com.google.Chrome
+  com.github.tchx84.Flatseal
+  com.xnview.XnViewMP
+  com.visualstudio.code
+  net.nokyan.Resources
+  io.missioncenter.MissionCenter
+  io.github.peazip.PeaZip
+)
 
-      - name: Log into GitHub Container Registry
-        uses: redhat-actions/podman-login@v1
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+for app in "${FLATPAKS[@]}"; do
+  flatpak install --system -y --noninteractive flathub "$app" || true
+done
+EOF
+    chmod +x /usr/libexec/my-custom-setup/install-flatpaks.sh
 
-      - name: Build image using Buildah (Red Hat Standard)
-        id: build-image
-        uses: redhat-actions/buildah-build@v2
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: latest
-          containerfiles: |
-            ./Containerfile
+# 注册一次性预装 systemd 服务
+RUN cat <<'EOF' > /etc/systemd/system/preinstall-flatpaks.service
+[Unit]
+Description=Pre-install default system Flatpaks
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/flatpaks-installed.stamp
 
-      - name: Push to GHCR
-        id: push-to-ghcr
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: latest
-          registry: ${{ env.REGISTRY }}
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/my-custom-setup/install-flatpaks.sh
+ExecStartPost=/usr/bin/touch /var/lib/flatpaks-installed.stamp
+RemainAfterExit=yes
 
-      - name: Sign image with Cosign
-        env:
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-        run: |
-          cosign sign --yes --key env://COSIGN_PRIVATE_KEY \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable preinstall-flatpaks.service
