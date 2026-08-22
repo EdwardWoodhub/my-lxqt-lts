@@ -22,12 +22,16 @@ RUN dnf install -y \
     konsole \
     kate \
     firefox \
+    fastfetch \
     spectacle \
     syncthing \
     git \
     htop \
     btop \
     flatpak \
+    kscreen \
+    open-vm-tools \
+    open-vm-tools-desktop \
     && dnf clean all
 
 # 4. 配置默认启动目标为图形界面，并启用 SDDM 显示管理器
