@@ -38,6 +38,9 @@ RUN dnf install -y \
 RUN systemctl set-default graphical.target && \
     systemctl enable sddm.service
 
+# 启用服务开机自启（在容器构建阶段生效）
+RUN systemctl enable vmtoolsd.service
+
 # 5. 配置 Flathub 软件源
 RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
