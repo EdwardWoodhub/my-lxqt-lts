@@ -9,7 +9,6 @@ on:
 
 env:
   IMAGE_NAME: my-plasma-lts-vm
-  REGISTRY: ghcr.io/${{ github.actor }}
 
 jobs:
   build:
@@ -26,6 +25,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 将 GitHub 用户名/组织名强制转换为纯小写，防止 Podman 推送因大写字符报错
+      - name: Set lower case registry name
+        id: registry_case
+        run: |
+          ACTOR_LOWER=$(echo "${{ github.actor }}" | tr '[:upper:]' '[:lower:]')
+          echo "REGISTRY=ghcr.io/${ACTOR_LOWER}" >> $GITHUB_ENV
+          echo "ACTOR_LOWER=${ACTOR_LOWER}" >> $GITHUB_ENV
+
       - name: Install Cosign (Sigstore)
         uses: sigstore/cosign-installer@v3.5.0
 
@@ -33,10 +40,10 @@ jobs:
         uses: redhat-actions/podman-login@v1
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ env.ACTOR_LOWER }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build image using Buildah (Red Hat Standard)
+      - name: Build image using Buildah
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
