@@ -34,47 +34,46 @@ RUN dnf install -y \
 RUN systemctl set-default graphical.target && \
     systemctl enable sddm.service
 
-# 5. 配置 Flathub 软件源与开机预装服务
+# 5. 配置 Flathub 软件源
 RUN flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-# 创建 Flatpak 首次开机自动安装脚本
+# 6. 生成 Flatpak 开机预装脚本 (已加入坚果云)
 RUN mkdir -p /usr/libexec/my-custom-setup && \
-    cat <<'EOF' > /usr/libexec/my-custom-setup/install-flatpaks.sh
-#!/usr/bin/env bash
-set -e
-
-FLATPAKS=(
-  org.mozilla.firefox
-  com.google.Chrome
-  com.github.tchx84.Flatseal
-  com.xnview.XnViewMP
-  com.visualstudio.code
-  net.nokyan.Resources
-  io.missioncenter.MissionCenter
-  io.github.peazip.PeaZip
-)
-
-for app in "${FLATPAKS[@]}"; do
-  flatpak install --system -y --noninteractive flathub "$app" || true
-done
-EOF
+    printf '%s\n' \
+      '#!/usr/bin/env bash' \
+      'set -e' \
+      'FLATPAKS=(' \
+      '  org.mozilla.firefox' \
+      '  com.google.Chrome' \
+      '  com.github.tchx84.Flatseal' \
+      '  com.xnview.XnViewMP' \
+      '  com.visualstudio.code' \
+      '  net.nokyan.Resources' \
+      '  io.missioncenter.MissionCenter' \
+      '  io.github.peazip.PeaZip' \
+      '  com.jianguoyun.Nutstore' \
+      ')' \
+      'for app in "${FLATPAKS[@]}"; do' \
+      '  flatpak install --system -y --noninteractive flathub "$app" || true' \
+      'done' \
+      > /usr/libexec/my-custom-setup/install-flatpaks.sh && \
     chmod +x /usr/libexec/my-custom-setup/install-flatpaks.sh
 
-# 注册一次性预装 systemd 服务
-RUN cat <<'EOF' > /etc/systemd/system/preinstall-flatpaks.service
-[Unit]
-Description=Pre-install default system Flatpaks
-After=network-online.target
-Wants=network-online.target
-ConditionPathExists=!/var/lib/flatpaks-installed.stamp
-
-[Service]
-Type=oneshot
-ExecStart=/usr/libexec/my-custom-setup/install-flatpaks.sh
-ExecStartPost=/usr/bin/touch /var/lib/flatpaks-installed.stamp
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# 7. 注册开机一次性预装 systemd 服务
+RUN printf '%s\n' \
+      '[Unit]' \
+      'Description=Pre-install default system Flatpaks' \
+      'After=network-online.target' \
+      'Wants=network-online.target' \
+      'ConditionPathExists=!/var/lib/flatpaks-installed.stamp' \
+      '' \
+      '[Service]' \
+      'Type=oneshot' \
+      'ExecStart=/usr/libexec/my-custom-setup/install-flatpaks.sh' \
+      'ExecStartPost=/usr/bin/touch /var/lib/flatpaks-installed.stamp' \
+      'RemainAfterExit=yes' \
+      '' \
+      '[Install]' \
+      'WantedBy=multi-user.target' \
+      > /etc/systemd/system/preinstall-flatpaks.service && \
     systemctl enable preinstall-flatpaks.service
